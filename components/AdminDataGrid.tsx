@@ -34,7 +34,14 @@ const AdminDataGrid: React.FC = () => {
   const adminRecords = useMemo(() => {
     return salesRecords
       .filter(r => r.status === 'Pending Admin')
-      .sort((a, b) => new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime());
+      .sort((a, b) => {
+        const dateA = new Date(a.deliveryDate).getTime();
+        const dateB = new Date(b.deliveryDate).getTime();
+        if (dateA !== dateB) {
+          return dateA - dateB;
+        }
+        return a.id - b.id;
+      });
   }, [salesRecords]);
 
   const handleUpdate = (record: SalesRecord, field: keyof SalesRecord, value: any) => {
@@ -94,11 +101,10 @@ const AdminDataGrid: React.FC = () => {
             <td className="px-2 py-2 align-top min-w-[170px]">
                  <label className={labelClasses}>วันที่ส่งมอบ</label>
                  <input type="date" value={record.deliveryDate} onChange={e => handleUpdate(record, 'deliveryDate', e.target.value)} className={`${commonInputClasses}`}/>
-                 <div className="text-xs text-gray-600 mt-1">
+                 <div className="text-xs text-gray-600 mt-2">
                     คันที่: <span className="font-semibold">{record.salespersonMonthlyCarCount}</span>
-                 </div>
-                 <div className="text-xs text-gray-500">
-                    ประจำเดือน: {new Date(record.deliveryDate).toLocaleString('th-TH', { month: 'long', year: 'numeric' })}
+                    <br/>
+                    เดือน: {new Date(record.deliveryDate).toLocaleString('th-TH', { month: 'long', year: 'numeric' })}
                  </div>
             </td>
             <td className="px-2 py-2 align-top min-w-[200px] space-y-1">
