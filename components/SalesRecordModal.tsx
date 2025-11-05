@@ -48,8 +48,10 @@ const SalesRecordModal: React.FC<SalesRecordModalProps> = ({ isOpen, onClose, re
   if (!isOpen) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const { name, value } = e.target;
+    // FIX: Cast value to `any` to prevent TypeScript from widening string literal union types (like FilmType) to `string`.
+    // This is a safe and common workaround for generic handlers.
+    setFormData(prev => ({ ...prev, [name]: value as any }));
   };
   
   const handleLaminaFilmChange = (sold: boolean, price: number) => {

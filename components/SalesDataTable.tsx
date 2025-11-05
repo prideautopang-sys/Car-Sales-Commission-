@@ -32,8 +32,7 @@ const SalesDataTable: React.FC = () => {
     salespersonName: '',
     carModel: '',
     branch: '',
-    startDate: '',
-    endDate: '',
+    deliveryMonth: '',
   };
   const [filters, setFilters] = useState(initialState);
 
@@ -44,6 +43,20 @@ const SalesDataTable: React.FC = () => {
   if (currentUser.role === Role.Admin) {
     return <AdminDataGrid />;
   }
+  
+  const monthOptions = useMemo(() => {
+    const options = [{ value: '', label: 'ทุกเดือน' }];
+    const today = new Date();
+    for (let i = 0; i < 12; i++) {
+        const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const value = `${year}-${String(month).padStart(2, '0')}`;
+        const label = date.toLocaleString('th-TH', { month: 'long', year: 'numeric' });
+        options.push({ value, label });
+    }
+    return options;
+  }, []);
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -88,20 +101,19 @@ const SalesDataTable: React.FC = () => {
         return record.status !== 'Pending Admin';
       })
       .filter(record => {
-        // Apply new filters
         const deliveryDate = new Date(record.deliveryDate);
-        const startDate = filters.startDate ? new Date(filters.startDate) : null;
-        const endDate = filters.endDate ? new Date(filters.endDate) : null;
-
-        if (startDate) startDate.setHours(0, 0, 0, 0);
-        if (endDate) endDate.setHours(23, 59, 59, 999);
+        
+        let monthMatch = true;
+        if (filters.deliveryMonth) {
+            const [year, month] = filters.deliveryMonth.split('-').map(Number);
+            monthMatch = deliveryDate.getFullYear() === year && (deliveryDate.getMonth() + 1) === month;
+        }
 
         return (
+          monthMatch &&
           (filters.salespersonName === '' || record.salespersonName === filters.salespersonName) &&
           (filters.carModel === '' || record.carModel === filters.carModel) &&
-          (filters.branch === '' || record.branch === filters.branch) &&
-          (!startDate || deliveryDate >= startDate) &&
-          (!endDate || deliveryDate <= endDate)
+          (filters.branch === '' || record.branch === filters.branch)
         );
       })
       .sort((a, b) => new Date(b.deliveryDate).getTime() - new Date(a.deliveryDate).getTime());
@@ -128,7 +140,7 @@ const SalesDataTable: React.FC = () => {
     }
   }
   
-  const FilterField = ({ label, name, value, onChange, children }: any) => (
+  const FilterField = ({ label, name, children }: any) => (
     <div>
         <label htmlFor={name} className="block text-sm font-medium text-gray-700">{label}</label>
         {children}
@@ -143,7 +155,7 @@ const SalesDataTable: React.FC = () => {
 
       {/* Filter Section */}
       <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4 items-end">
               <FilterField label="ชื่อเซลล์">
                   <select name="salespersonName" value={filters.salespersonName} onChange={handleFilterChange} className="mt-1 block w-full p-2 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
                       <option value="">ทั้งหมด</option>
@@ -162,11 +174,10 @@ const SalesDataTable: React.FC = () => {
                       {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
                   </select>
               </FilterField>
-              <FilterField label="วันที่ส่งมอบ (เริ่ม)">
-                  <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="mt-1 block w-full p-2 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"/>
-              </FilterField>
-              <FilterField label="วันที่ส่งมอบ (สิ้นสุด)">
-                  <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="mt-1 block w-full p-2 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"/>
+              <FilterField label="เดือนส่งมอบ">
+                  <select name="deliveryMonth" value={filters.deliveryMonth} onChange={handleFilterChange} className="mt-1 block w-full p-2 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+                    {monthOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                  </select>
               </FilterField>
               <button onClick={resetFilters} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm font-medium w-full">ล้างตัวกรอง</button>
           </div>
