@@ -1,0 +1,5 @@
+{
+  "name": "Car Sales Commission Tracker",
+  "description": "A comprehensive application for tracking and managing car sales commissions for employees. It features role-based access for admins, managers, and executives, configurable commission rules, and detailed reporting capabilities.",
+  "requestFramePermissions": []
+}
