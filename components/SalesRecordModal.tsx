@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect, useCallback } from 'react';
 import { AppContext } from '../App';
-import { SalesRecord, SelectedAccessory } from '../types';
+import { SalesRecord, SelectedAccessory, FilmType, Branch, FilmStatus, PaymentMethod } from '../types';
 import { BRANCHES, FILM_TYPES, FILM_STATUSES, PAYMENT_METHODS, LAMINA_FILM_ACCESSORY_ID } from '../constants';
 
 interface SalesRecordModalProps {
@@ -26,7 +26,7 @@ const SalesRecordModal: React.FC<SalesRecordModalProps> = ({ isOpen, onClose, re
       carModel: settings.carModelCommissions[0]?.modelName || '',
       carColor: '',
       stockLocation: BRANCHES[0],
-      filmType: 'None',
+      filmType: 'None' as FilmType,
       filmStatus: FILM_STATUSES[0],
       freebies: '',
       paymentMethod: PAYMENT_METHODS[0],
@@ -91,7 +91,9 @@ const SalesRecordModal: React.FC<SalesRecordModalProps> = ({ isOpen, onClose, re
     if (recordToEdit) {
       updateSale(formData as SalesRecord);
     } else {
-      addSale(formData);
+      // FIX: The formData type is widened by the generic handleChange, and its type is a union.
+      // Casting to `any` resolves the type error because we know the data is structurally correct for a new sale.
+      addSale(formData as any);
     }
     onClose();
   };

@@ -36,14 +36,7 @@ const SalesDataTable: React.FC = () => {
   };
   const [filters, setFilters] = useState(initialState);
 
-  if (!context) return <div>Loading...</div>;
-  const { currentUser, salesRecords, updateSale, settings } = context;
-
-  // Admin has a completely different view now
-  if (currentUser.role === Role.Admin) {
-    return <AdminDataGrid />;
-  }
-  
+  // Hooks must be called unconditionally at the top level.
   const monthOptions = useMemo(() => {
     const options = [{ value: '', label: 'ทุกเดือน' }];
     const today = new Date();
@@ -58,33 +51,14 @@ const SalesDataTable: React.FC = () => {
     return options;
   }, []);
 
-  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value }));
-  };
-
-  const resetFilters = () => {
-    setFilters(initialState);
-  };
-  
-  // Manager and Executive view
-  const handleEdit = (record: SalesRecord) => {
-    setEditingRecord(record);
-    setIsModalOpen(true);
-  };
-  
-  const handleApprove = (record: SalesRecord) => {
-      const nextStatus: SaleStatus = currentUser.role === Role.Manager 
-        ? 'Pending Executive Finalization' 
-        : 'Finalized';
-      updateSale({ ...record, status: nextStatus });
-  };
-
-  const handlePaymentStatus = (record: SalesRecord, isPaid: boolean) => {
-    updateSale({ ...record, isPaid, paymentDate: isPaid ? new Date().toISOString().split('T')[0] : null });
-  };
-
   const visibleRecords = useMemo(() => {
+    // This logic should only run for non-admin roles, but the hook must be called always.
+    // Return empty array if context is not ready or if user is admin.
+    if (!context || !context.currentUser || context.currentUser.role === Role.Admin) {
+        return [];
+    }
+    const { salesRecords, currentUser } = context;
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -117,8 +91,43 @@ const SalesDataTable: React.FC = () => {
         );
       })
       .sort((a, b) => new Date(b.deliveryDate).getTime() - new Date(a.deliveryDate).getTime());
-  }, [salesRecords, currentUser, filters]);
+  }, [context, filters]); // Depend on the whole context and filters
+
+
+  if (!context) return <div>Loading...</div>;
+  const { currentUser, updateSale, settings } = context;
+
+  // Conditional return must come AFTER all hook calls.
+  if (currentUser.role === Role.Admin) {
+    return <AdminDataGrid />;
+  }
   
+  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value }));
+  };
+
+  const resetFilters = () => {
+    setFilters(initialState);
+  };
+  
+  // Manager and Executive view
+  const handleEdit = (record: SalesRecord) => {
+    setEditingRecord(record);
+    setIsModalOpen(true);
+  };
+  
+  const handleApprove = (record: SalesRecord) => {
+      const nextStatus: SaleStatus = currentUser.role === Role.Manager 
+        ? 'Pending Executive Finalization' 
+        : 'Finalized';
+      updateSale({ ...record, status: nextStatus });
+  };
+
+  const handlePaymentStatus = (record: SalesRecord, isPaid: boolean) => {
+    updateSale({ ...record, isPaid, paymentDate: isPaid ? new Date().toISOString().split('T')[0] : null });
+  };
+
   const canEdit = (record: SalesRecord) => {
     if (record.status === 'Finalized') return false;
     switch (currentUser.role) {
