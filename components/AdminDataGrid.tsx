@@ -95,7 +95,7 @@ const AdminDataGrid: React.FC = () => {
                  <label className={labelClasses}>วันที่ส่งมอบ</label>
                  <input type="date" value={record.deliveryDate} onChange={e => handleUpdate(record, 'deliveryDate', e.target.value)} className={`${commonInputClasses}`}/>
                  <div className="text-xs text-gray-600 mt-1">
-                    คันที่ (เดือน): <span className="font-semibold">{record.salespersonMonthlyCarCount}</span>
+                    คันที่: <span className="font-semibold">{record.salespersonMonthlyCarCount}</span>
                  </div>
                  <div className="text-xs text-gray-500">
                     ประจำเดือน: {new Date(record.deliveryDate).toLocaleString('th-TH', { month: 'long', year: 'numeric' })}
