@@ -4,6 +4,7 @@ import { SalesRecord, Role, SaleStatus } from '../types';
 import SalesRecordModal from './SalesRecordModal';
 import AdminDataGrid from './AdminDataGrid';
 import { PlusCircleIcon, PencilIcon, CheckCircleIcon, LockClosedIcon, ShieldCheckIcon } from '@heroicons/react/24/solid';
+import { BRANCHES } from '../constants';
 
 const getStatusBadge = (status: SaleStatus) => {
   const baseClasses = "px-2 py-1 text-xs font-semibold rounded-full";
@@ -26,14 +27,32 @@ const SalesDataTable: React.FC = () => {
   const context = useContext(AppContext);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<SalesRecord | null>(null);
+  
+  const initialState = {
+    salespersonName: '',
+    carModel: '',
+    branch: '',
+    startDate: '',
+    endDate: '',
+  };
+  const [filters, setFilters] = useState(initialState);
 
   if (!context) return <div>Loading...</div>;
-  const { currentUser, salesRecords, updateSale } = context;
+  const { currentUser, salesRecords, updateSale, settings } = context;
 
   // Admin has a completely different view now
   if (currentUser.role === Role.Admin) {
     return <AdminDataGrid />;
   }
+
+  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value }));
+  };
+
+  const resetFilters = () => {
+    setFilters(initialState);
+  };
   
   // Manager and Executive view
   const handleEdit = (record: SalesRecord) => {
@@ -58,18 +77,35 @@ const SalesDataTable: React.FC = () => {
 
     return salesRecords
       .filter(record => {
-        const deliveryDate = new Date(record.deliveryDate);
-        deliveryDate.setHours(0,0,0,0);
+        const deliveryDateRaw = new Date(record.deliveryDate);
+        deliveryDateRaw.setHours(0,0,0,0);
 
         if (currentUser.role === Role.Manager) {
           // Manager can see records ready for approval (past/today delivery date)
-          return record.status === 'Pending Manager Approval' && deliveryDate <= today;
+          return record.status === 'Pending Manager Approval' && deliveryDateRaw <= today;
         }
         // Executive sees everything past admin stage.
         return record.status !== 'Pending Admin';
       })
+      .filter(record => {
+        // Apply new filters
+        const deliveryDate = new Date(record.deliveryDate);
+        const startDate = filters.startDate ? new Date(filters.startDate) : null;
+        const endDate = filters.endDate ? new Date(filters.endDate) : null;
+
+        if (startDate) startDate.setHours(0, 0, 0, 0);
+        if (endDate) endDate.setHours(23, 59, 59, 999);
+
+        return (
+          (filters.salespersonName === '' || record.salespersonName === filters.salespersonName) &&
+          (filters.carModel === '' || record.carModel === filters.carModel) &&
+          (filters.branch === '' || record.branch === filters.branch) &&
+          (!startDate || deliveryDate >= startDate) &&
+          (!endDate || deliveryDate <= endDate)
+        );
+      })
       .sort((a, b) => new Date(b.deliveryDate).getTime() - new Date(a.deliveryDate).getTime());
-  }, [salesRecords, currentUser]);
+  }, [salesRecords, currentUser, filters]);
   
   const canEdit = (record: SalesRecord) => {
     if (record.status === 'Finalized') return false;
@@ -91,12 +127,52 @@ const SalesDataTable: React.FC = () => {
       default: return false;
     }
   }
+  
+  const FilterField = ({ label, name, value, onChange, children }: any) => (
+    <div>
+        <label htmlFor={name} className="block text-sm font-medium text-gray-700">{label}</label>
+        {children}
+    </div>
+  );
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-lg">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold text-gray-700">รายการขายรออนุมัติ</h2>
       </div>
+
+      {/* Filter Section */}
+      <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 items-end">
+              <FilterField label="ชื่อเซลล์">
+                  <select name="salespersonName" value={filters.salespersonName} onChange={handleFilterChange} className="mt-1 block w-full p-2 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+                      <option value="">ทั้งหมด</option>
+                      {settings.salespeople.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+              </FilterField>
+              <FilterField label="รุ่นรถ">
+                  <select name="carModel" value={filters.carModel} onChange={handleFilterChange} className="mt-1 block w-full p-2 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+                      <option value="">ทั้งหมด</option>
+                      {settings.carModelCommissions.map(c => <option key={c.modelName} value={c.modelName}>{c.modelName}</option>)}
+                  </select>
+              </FilterField>
+              <FilterField label="สาขา">
+                  <select name="branch" value={filters.branch} onChange={handleFilterChange} className="mt-1 block w-full p-2 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+                      <option value="">ทั้งหมด</option>
+                      {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+              </FilterField>
+              <FilterField label="วันที่ส่งมอบ (เริ่ม)">
+                  <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="mt-1 block w-full p-2 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"/>
+              </FilterField>
+              <FilterField label="วันที่ส่งมอบ (สิ้นสุด)">
+                  <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="mt-1 block w-full p-2 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"/>
+              </FilterField>
+              <button onClick={resetFilters} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm font-medium w-full">ล้างตัวกรอง</button>
+          </div>
+      </div>
+
+
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -152,7 +228,7 @@ const SalesDataTable: React.FC = () => {
              {visibleRecords.length === 0 && (
                 <tr>
                     <td colSpan={currentUser.role === Role.Executive ? 8 : 7} className="text-center py-10 text-gray-500">
-                        ไม่มีข้อมูลให้แสดงสำหรับสิทธิ์ของคุณ
+                        ไม่มีข้อมูลที่ตรงกับตัวกรอง
                     </td>
                 </tr>
             )}

@@ -11,6 +11,16 @@ const AdminDataGrid: React.FC = () => {
   const context = useContext(AppContext);
   if (!context) return <div>Loading...</div>;
   const { salesRecords, addSale, updateSale, settings } = context;
+  
+  const initialState = {
+    salespersonName: '',
+    carModel: '',
+    branch: '',
+    startDate: '',
+    endDate: '',
+  };
+  const [filters, setFilters] = useState(initialState);
+
 
   const createEmptyRecord = useCallback((): NewRecordState => ({
     deliveryDate: new Date().toISOString().split('T')[0],
@@ -31,9 +41,34 @@ const AdminDataGrid: React.FC = () => {
   const [newRecord, setNewRecord] = useState<NewRecordState>(createEmptyRecord());
   const [editingAccessoriesFor, setEditingAccessoriesFor] = useState<SalesRecord | null>(null);
 
+  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value }));
+  };
+
+  const resetFilters = () => {
+    setFilters(initialState);
+  };
+
   const adminRecords = useMemo(() => {
     return salesRecords
       .filter(r => r.status === 'Pending Admin')
+      .filter(record => {
+        const deliveryDate = new Date(record.deliveryDate);
+        const startDate = filters.startDate ? new Date(filters.startDate) : null;
+        const endDate = filters.endDate ? new Date(filters.endDate) : null;
+
+        if (startDate) startDate.setHours(0, 0, 0, 0);
+        if (endDate) endDate.setHours(23, 59, 59, 999);
+
+        return (
+          (filters.salespersonName === '' || record.salespersonName === filters.salespersonName) &&
+          (filters.carModel === '' || record.carModel === filters.carModel) &&
+          (filters.branch === '' || record.branch === filters.branch) &&
+          (!startDate || deliveryDate >= startDate) &&
+          (!endDate || deliveryDate <= endDate)
+        );
+      })
       .sort((a, b) => {
         const dateA = new Date(a.deliveryDate).getTime();
         const dateB = new Date(b.deliveryDate).getTime();
@@ -42,7 +77,7 @@ const AdminDataGrid: React.FC = () => {
         }
         return a.id - b.id;
       });
-  }, [salesRecords]);
+  }, [salesRecords, filters]);
 
   const handleUpdate = (record: SalesRecord, field: keyof SalesRecord, value: any) => {
     if (record.status !== 'Pending Admin') return;
@@ -90,6 +125,13 @@ const AdminDataGrid: React.FC = () => {
   const commonSelectClasses = commonInputClasses + " pr-8";
   const commonTextareaClasses = commonInputClasses + " min-h-[40px]";
   const labelClasses = "text-xs text-gray-600 mb-0.5 block";
+
+  const FilterField = ({ label, name, value, onChange, children }: any) => (
+    <div>
+        <label htmlFor={name} className="block text-sm font-medium text-gray-700">{label}</label>
+        {children}
+    </div>
+  );
 
   const renderRecordRow = (record: SalesRecord, index: number) => {
     const lamina = record.accessories.find(a => a.accessoryId === LAMINA_FILM_ACCESSORY_ID);
@@ -277,6 +319,37 @@ const AdminDataGrid: React.FC = () => {
   return (
     <div className="bg-white p-6 rounded-lg shadow-lg">
       <h2 className="text-2xl font-bold text-gray-700 mb-4">บันทึกข้อมูลการขาย</h2>
+       {/* Filter Section */}
+      <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 items-end">
+              <FilterField label="ชื่อเซลล์">
+                  <select name="salespersonName" value={filters.salespersonName} onChange={handleFilterChange} className="mt-1 block w-full p-2 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+                      <option value="">ทั้งหมด</option>
+                      {settings.salespeople.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+              </FilterField>
+              <FilterField label="รุ่นรถ">
+                  <select name="carModel" value={filters.carModel} onChange={handleFilterChange} className="mt-1 block w-full p-2 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+                      <option value="">ทั้งหมด</option>
+                      {settings.carModelCommissions.map(c => <option key={c.modelName} value={c.modelName}>{c.modelName}</option>)}
+                  </select>
+              </FilterField>
+              <FilterField label="สาขา">
+                  <select name="branch" value={filters.branch} onChange={handleFilterChange} className="mt-1 block w-full p-2 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+                      <option value="">ทั้งหมด</option>
+                      {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+              </FilterField>
+              <FilterField label="วันที่ส่งมอบ (เริ่ม)">
+                  <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="mt-1 block w-full p-2 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"/>
+              </FilterField>
+              <FilterField label="วันที่ส่งมอบ (สิ้นสุด)">
+                  <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="mt-1 block w-full p-2 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"/>
+              </FilterField>
+              <button onClick={resetFilters} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm font-medium w-full">ล้างตัวกรอง</button>
+          </div>
+      </div>
+
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 border">
           <thead className="bg-gray-100">
@@ -285,7 +358,15 @@ const AdminDataGrid: React.FC = () => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {adminRecords.map((record, index) => renderRecordRow(record, index))}
+            {adminRecords.length > 0 ? (
+                adminRecords.map((record, index) => renderRecordRow(record, index))
+            ) : (
+                <tr>
+                    <td colSpan={headers.length} className="text-center py-10 text-gray-500">
+                        ไม่มีข้อมูลที่ตรงกับตัวกรอง
+                    </td>
+                </tr>
+            )}
             {renderNewRecordRow()}
           </tbody>
         </table>
